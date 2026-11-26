@@ -17,7 +17,7 @@ trap restore EXIT
 
 # Center of the first element whose resource-id, text or description matches ($1 = id|text|desc, $2 = value).
 find() {
-  $A shell "uiautomator dump /data/local/tmp/ui.xml >/dev/null 2>&1; cat /data/local/tmp/ui.xml" | python3 -c '
+  $A shell "for t in 1 2 3; do rm -f /data/local/tmp/ui.xml; uiautomator dump /data/local/tmp/ui.xml >/dev/null 2>&1 && break; sleep 1; done; cat /data/local/tmp/ui.xml 2>/dev/null" | python3 -c '
 import re, sys
 kind, want = sys.argv[1], sys.argv[2]
 for n in re.findall(r"<node [^>]*>", sys.stdin.read()):
