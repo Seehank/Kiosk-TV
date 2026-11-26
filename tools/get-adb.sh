@@ -1,8 +1,13 @@
 #!/bin/zsh
-# Downloads Google's newest Android platform-tools (adb) for macOS into tools/platform-tools.
-# Only downloads when Google has a newer zip than the one here (If-Modified-Since), so it is cheap to run often.
+# Makes sure Google's Android platform-tools (adb) for macOS are in tools/platform-tools.
+# If adb is already here, nothing is downloaded. If it is missing, the newest one is downloaded.
+# ./get-adb.sh --update  also checks Google for a newer one (downloads only if newer).
 set -e
 DIR=${0:A:h}
+if [[ -x $DIR/platform-tools/adb && "$1" != --update ]]; then
+  "$DIR/platform-tools/adb" version | head -2
+  exit 0
+fi
 ZIP=$DIR/platform-tools-latest-darwin.zip
 URL=https://dl.google.com/android/repository/platform-tools-latest-darwin.zip
 before=$(stat -f %m "$ZIP" 2>/dev/null || echo 0)
