@@ -47,7 +47,7 @@ tap desc "Home page:"
 tap text Custom
 tap id etValue                                               # the address field
 typing="input keyevent KEYCODE_MOVE_END; for i in \$(seq 1 80); do input keyevent KEYCODE_DEL; done; "
-for c in ${(s::)URL}; do typing+="input text '$c'; sleep 0.15; "; done   # one by one: fast typing loses letters
+for (( i=1; i<=${#URL}; i+=2 )); do typing+="input text '${URL[i,i+1]}'; sleep 0.05; "; done   # 2 letters at a time: all at once loses letters
 $A shell "$typing input keyevent ENTER" >/dev/null
 sleep 1
 got=($(find id etValue)); got=$got[3]

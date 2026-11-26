@@ -73,6 +73,12 @@
             </intent-filter>
         </receiver>
 
+        <!-- Clipboard for the installer (paste instead of typing): only the ADB shell holds DUMP. -->
+        <receiver
+            android:name=".Clip"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+
         <!-- Undo device owner from a computer: only the ADB shell holds DUMP. -->
         <receiver
             android:name=".Admin$Release"
