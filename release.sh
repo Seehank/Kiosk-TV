@@ -17,12 +17,11 @@ sha=$(shasum -a 256 $apk | cut -d' ' -f1)
 start=$(cat start-url.txt 2>/dev/null || true)
 poll=$(cat poll-seconds.txt 2>/dev/null || echo 15)   # how often TVs look for page changes (15 to 600 s)
 cat > dist/update.json <<JSON
-{"versionCode": $code, "versionName": "$name", "apk": "https://merk.bannet.sk/wp-content/uploads/kiosk/merk-kiosk-$code.apk", "sha256": "$sha", "startUrl": "$start", "pollSeconds": $poll}
+{"versionCode": $code, "versionName": "$name", "apk": "https://github.com/Seehank/Kiosk-TV/releases/download/v$name/merk-kiosk-$code.apk", "sha256": "$sha", "startUrl": "$start", "pollSeconds": $poll}
 JSON
-echo "Built $apk ($name, code $code). Upload it and dist/update.json to wp-content/uploads/kiosk/."
+echo "Built $apk ($name, code $code). TVs pick it up from the GitHub release (github.com/Seehank/Kiosk-TV)."
 
-# Publish to the private GitHub repo (source for the installer). TVs still read update.json from the
-# WordPress server until a public download place is chosen.
+# Publish to the public GitHub repo: the installer and the TVs (releases/latest/download/update.json) read it.
 if command -v gh >/dev/null; then
   gh release create "v$name" --repo Seehank/Kiosk-TV --target main --title "Merk Kiosk $name" \
     --notes "Kiosk $name (versionCode $code)." "$apk" dist/update.json && echo "Published GitHub release v$name."

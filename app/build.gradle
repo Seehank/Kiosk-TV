@@ -19,7 +19,7 @@ android {
         buildConfigField 'String', 'BASE', '"https://merk.bannet.sk"'
         // Landing page. Empty: the picker built into the app. update.json "startUrl" overrides it.
         buildConfigField 'String', 'START_URL', '"https://merk.bannet.sk/tv-menu/"'
-        buildConfigField 'String', 'UPDATE_URL', '"https://merk.bannet.sk/wp-content/uploads/kiosk/update.json"'
+        buildConfigField 'String', 'UPDATE_URL', '"https://github.com/Seehank/Kiosk-TV/releases/latest/download/update.json"'
     }
     buildFeatures { buildConfig true }
     signingConfigs {
