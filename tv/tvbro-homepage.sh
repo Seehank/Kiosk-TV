@@ -49,7 +49,14 @@ tap id etValue                                               # the address field
 # The kiosk app puts the address into the clipboard, then one Paste fills the field (typing loses letters).
 $A shell "am broadcast -n sk.merk.kiosk/.Clip --es text '$URL'" | grep -q 'data="ok"' || { echo "   the kiosk could not set the clipboard (kiosk 1.16+ needed)" >&2; exit 1; }
 typing="input keyevent KEYCODE_MOVE_END $(printf '67 %.0s' {1..80}); input keyevent KEYCODE_PASTE; sleep 1; "   # 67 = Delete, all in one command
-$A shell "$typing input keyevent ENTER" >/dev/null
+if [[ -n $STOP_BEFORE_ENTER ]]; then          # testing: paste, then stop and show where we are
+  $A shell "$typing" >/dev/null
+  $A shell "screencap -p /data/local/tmp/s.png" >/dev/null
+  echo "   stopped before Enter (screenshot /data/local/tmp/s.png)"; exit 0
+fi
+# Confirm with the on-screen keyboard's own Enter key: its focus starts on the settings key (bottom right),
+# the Enter key is right above it. (A plain Enter key event moved the selection to the item below.)
+$A shell "$typing input keyevent DPAD_UP; sleep 0.5; input keyevent DPAD_CENTER" >/dev/null
 sleep 1
 got=($(find id etValue)); got=$got[3]
 $A shell "input keyevent BACK; sleep 1; input keyevent BACK; am force-stop $BRO" >/dev/null
