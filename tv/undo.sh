@@ -20,7 +20,7 @@ if [[ -f $ST/settings-before.txt ]]; then
   s=("${(@f)$(cat $ST/settings-before.txt)}")
   $A shell "settings put secure screensaver_enabled ${s[1]}"
   [[ ${s[2]} != null ]] && $A shell "settings put secure sleep_timeout ${s[2]}"
-  [[ ${s[3]} != null ]] && $A shell "settings put system screen_off_timeout ${s[3]}"
+  if [[ ${s[3]} == null || ${s[3]} == 2147483647 ]]; then $A shell "settings delete system screen_off_timeout"; else $A shell "settings put system screen_off_timeout ${s[3]}"; fi
 fi
 $A shell "am broadcast -n 'sk.merk.kiosk/.Admin\$Release'" >/dev/null 2>&1 || true   # gives up device owner, if set
 $A shell "settings put secure enabled_accessibility_services ''" >/dev/null
