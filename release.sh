@@ -20,3 +20,10 @@ cat > dist/update.json <<JSON
 {"versionCode": $code, "versionName": "$name", "apk": "https://merk.bannet.sk/wp-content/uploads/kiosk/merk-kiosk-$code.apk", "sha256": "$sha", "startUrl": "$start", "pollSeconds": $poll}
 JSON
 echo "Built $apk ($name, code $code). Upload it and dist/update.json to wp-content/uploads/kiosk/."
+
+# Publish to the private GitHub repo (source for the installer). TVs still read update.json from the
+# WordPress server until a public download place is chosen.
+if command -v gh >/dev/null; then
+  gh release create "v$name" --repo Seehank/Kiosk-TV --target main --title "Merk Kiosk $name" \
+    --notes "Kiosk $name (versionCode $code)." "$apk" dist/update.json && echo "Published GitHub release v$name."
+fi
