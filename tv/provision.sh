@@ -74,6 +74,7 @@ for p in $(grep -v '^#' debloat-list.txt | grep -v '^$'); do
 done
 
 echo "== Kiosk settings"
+$A shell "wm density 106"   # about 1920 px wide like the other TVs (panel 1280x720 at 213); undo.sh resets it
 $A shell "settings put secure screensaver_enabled 0"
 $A shell "settings put secure sleep_timeout 0"
 $A shell "settings put system screen_off_timeout 2147483647"
