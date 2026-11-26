@@ -72,22 +72,54 @@ def find_tvs():
     return tvs
 
 
-def tv_model(ip):
-    """Model and Android version over ADB (the TV asks 'Allow USB debugging?' the first time)."""
+EXPECTED_MODEL, EXPECTED_ANDROID = "UnionTV", "9"     # the TCL TVs this setup was made and tested on
+HISTORY = os.path.join(HERE, "state", "installs.csv")      # local only (tv/state is not in git)
+
+
+def adb_shell(ip, cmd, timeout=60):
     env = dict(os.environ, TV_IP=ip, TVADB_TRIES="1")
     try:
-        out = subprocess.run([os.path.join(HERE, "adb.sh"), "shell",
-                              "getprop ro.product.model; getprop ro.build.version.release; pm list packages sk.merk.kiosk"],
-                             env=env, capture_output=True, text=True, timeout=60).stdout
+        return subprocess.run([os.path.join(HERE, "adb.sh"), "shell", cmd], env=env,
+                              capture_output=True, text=True, timeout=timeout).stdout
     except subprocess.TimeoutExpired:
-        return None
-    lines = [l.strip() for l in out.splitlines() if l.strip()]
-    if len(lines) < 2:
-        return None
-    return {"model": lines[0], "android": lines[1], "kiosk": any("sk.merk.kiosk" in l for l in lines)}
+        return ""
 
 
-def start_job(ip, script, args=()):
+def tv_status(ip):
+    """Model, Android version, kiosk version, helper and the page on screen, read over ADB.
+    The TV asks 'Allow USB debugging?' the first time."""
+    out = adb_shell(ip, "echo M=$(getprop ro.product.model); echo A=$(getprop ro.build.version.release); "
+                        "echo V=$(dumpsys package sk.merk.kiosk | grep -m1 versionName | cut -d= -f2); "
+                        "echo H=$(settings get secure enabled_accessibility_services); "
+                        "echo P=$(logcat -d -s MerkKiosk:I | grep -o 'load http[^ ]*' | tail -1 | cut -c6-)")
+    v = dict(l.split("=", 1) for l in out.splitlines() if re.match(r"^[MAVHP]=", l))
+    if not v.get("M"):
+        return None
+    return {"model": v["M"], "android": v.get("A", ""), "version": v.get("V", ""),
+            "helper": "sk.merk.kiosk" in v.get("H", ""), "page": v.get("P", "") if v.get("V") else "",
+            "expected": v["M"] == EXPECTED_MODEL and v.get("A") == EXPECTED_ANDROID}
+
+
+def log_history(ip, action, ok):
+    s = tv_status(ip) or {}
+    os.makedirs(os.path.dirname(HISTORY), exist_ok=True)
+    new = not os.path.exists(HISTORY)
+    with open(HISTORY, "a") as f:
+        if new:
+            f.write("cas,ip,akcia,vysledok,model,verzia\n")
+        f.write(f"{time.strftime('%Y-%m-%d %H:%M')},{ip},{action},{'OK' if ok else 'CHYBA'},"
+                f"{s.get('model', '')},{s.get('version', '')}\n")
+
+
+def read_history():
+    if not os.path.exists(HISTORY):
+        return []
+    with open(HISTORY) as f:
+        rows = [l.rstrip("\n").split(",") for l in f][1:]
+    return rows[-50:][::-1]
+
+
+def start_job(ip, script, args=(), extra_env=None):
     with lock:
         if jobs.get(ip, {}).get("running"):
             return
@@ -95,13 +127,17 @@ def start_job(ip, script, args=()):
 
     def work():
         p = subprocess.Popen([os.path.join(HERE, script), ip, *args], cwd=HERE, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, text=True, env=dict(os.environ, TV_IP=ip))
+                             stderr=subprocess.STDOUT, text=True,
+                             env=dict(os.environ, TV_IP=ip, **(extra_env or {})))
         for line in p.stdout:
             with lock:
                 jobs[ip]["lines"].append(line.rstrip())
         p.wait()
         with lock:
             jobs[ip]["lines"].append("— hotovo —" if p.returncode == 0 else f"— skončilo s chybou ({p.returncode}) —")
+        if script in ("provision.sh", "undo.sh"):
+            log_history(ip, "inštalácia" if script == "provision.sh" else "vrátenie", p.returncode == 0)
+        with lock:
             jobs[ip]["running"] = False
 
     threading.Thread(target=work, daemon=True).start()
@@ -121,6 +157,8 @@ PAGE = """<!doctype html><html lang="sk"><head><meta charset="utf-8"><title>Merk
  button.primary{background:var(--acc);border-color:var(--acc);color:#fff} button:disabled{opacity:.5;cursor:default}
  pre{background:#0d0d0f;color:#d7d7d7;border-radius:8px;padding:10px;max-height:280px;overflow:auto;font-size:12px;white-space:pre-wrap;margin:10px 0 0}
  ol{padding-left:20px;margin:6px 0} .ok{color:#2e9e4a} .warn{color:#c47a00}
+ table{border-collapse:collapse;margin-top:8px;font-size:13px} td{padding:3px 10px 3px 0;border-bottom:1px solid var(--line)}
+ [data-info] button{padding:3px 10px;font-size:13px;margin-left:6px}
 </style></head><body><main>
 <h1>Merk Kiosk inštalátor</h1>
 <p class="sub">Nájde televízory na tejto Wi-Fi a jedným tlačidlom z nich spraví menu kiosk.</p>
@@ -132,6 +170,8 @@ PAGE = """<!doctype html><html lang="sk"><head><meta charset="utf-8"><title>Merk
  <button id="many" onclick="installSelected()" disabled>Nainštalovať vybrané</button>
  <span class="muted" id="status"></span></div>
 <div id="list"></div>
+<div class="card"><b>História inštalácií</b> <span class="muted">(posledných 50)</span><div id="hist" class="muted"></div></div>
+<div class="row"><span class="grow"></span><button onclick="quit()">Ukončiť inštalátor</button></div>
 </main><script>
 const $=s=>document.querySelector(s);
 async function scan(){ $('#scan').disabled=true; $('#status').textContent='Hľadám (asi 10 s)…';
@@ -152,27 +192,39 @@ async function installSelected(){ const ips=selected(); if(!ips.length) return;
   if(!confirm(`Nainštalovať kiosk na ${ips.length} TV (${ips.join(', ')})? Pôjdu po jednej, každá sa na konci reštartuje.`)) return;
   $('#many').disabled=true; $('#scan').disabled=true;
   for(const [i,ip] of ips.entries()){ $('#status').textContent=`Inštalujem ${i+1}/${ips.length}: ${ip}`;
-    await fetch(`/api/install?ip=${ip}`,{method:'POST'}); await waitDone(ip); }
-  $('#status').textContent='Hotovo, všetky vybrané TV sú spracované.'; $('#scan').disabled=false; sel();
+    if(tvinfo[ip]&&!tvinfo[ip].expected){ $('#status').textContent=`${ip} preskočená: iný model (inštaluj ju samostatne)`; continue; }
+    await fetch(`/api/install?ip=${ip}`,{method:'POST'}); await waitDone(ip); info(ip); }
+  $('#status').textContent='Hotovo, všetky vybrané TV sú spracované.'; $('#scan').disabled=false; sel(); history();
 }
 async function waitDone(ip){ while(true){ const j=await (await fetch('/api/log?ip='+ip)).json(); showLog(ip,j);
   if(!j.running) return; await new Promise(r=>setTimeout(r,1500)); } }
 function showLog(ip,j){ const box=document.querySelector(`#tv-${ip.replaceAll('.','-')} pre`); box.hidden=false;
   box.textContent=j.lines.join('\\n'); box.scrollTop=1e9; }
-async function info(ip){ const el=document.querySelector(`#tv-${ip.replaceAll('.','-')} [data-info]`);
+const tvinfo={};
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function info(ip){ const card=document.querySelector(`#tv-${ip.replaceAll('.','-')}`), el=card.querySelector('[data-info]');
   el.textContent='Pripájam sa… ak sa na TV objaví „Povoliť ladenie USB?“, daj Vždy povoliť a OK.';
-  const r=await (await fetch('/api/info?ip='+ip)).json();
-  el.innerHTML=r?`${r.model}, Android ${r.android} · kiosk ${r.kiosk?'<span class=ok>je nainštalovaný</span>':'nie je nainštalovaný'}`:'<span class=warn>TV nepovolila pripojenie. Povoľ na TV a hľadaj znova.</span>';
+  const r=await (await fetch('/api/info?ip='+ip)).json(); tvinfo[ip]=r;
+  if(!r){ el.innerHTML='<span class=warn>TV nepovolila pripojenie. Povoľ na TV a hľadaj znova.</span>'; return; }
+  let h=`${esc(r.model)}, Android ${esc(r.android)}`;
+  if(!r.expected) h+=` · <span class=warn>iný model ako testovaný (UnionTV, Android 9)</span>`;
+  h+= r.version ? ` · kiosk <span class=ok>${esc(r.version)}</span> · pomocník ${r.helper?'<span class=ok>zapnutý</span>':'<span class=warn>vypnutý</span>'}` : ' · kiosk nie je nainštalovaný';
+  if(r.page) h+=`<br>na obrazovke: ${esc(r.page)}`;
+  if(r.version && !r.helper) h+=` <button onclick="helper('${ip}')">Zapnúť pomocníka</button>`;
+  el.innerHTML=h;
 }
-async function go(ip,what){ if(what==='install'&&!confirm('Nainštalovať kiosk na '+ip+'? TV sa na konci reštartuje.'))return;
+async function helper(ip){ await fetch('/api/helper?ip='+ip,{method:'POST'}); await waitDone(ip); info(ip); }
+async function go(ip,what){ const r=tvinfo[ip]||{}; let force='';
+  if(what==='install'){
+    if(r.model && !r.expected){ if(!confirm(`Pozor: ${r.model}, Android ${r.android} nie je model, na ktorom bol kiosk testovaný (UnionTV, Android 9). Inštalovať aj tak?`)) return; force='&force=1'; }
+    else if(!confirm('Nainštalovať kiosk na '+ip+'? TV sa na konci reštartuje.')) return; }
   if(what==='undo'&&!confirm('Vrátiť '+ip+' do pôvodného stavu?'))return;
-  await fetch(`/api/${what}?ip=${ip}`,{method:'POST'}); poll(ip);
+  await fetch(`/api/${what}?ip=${ip}${force}`,{method:'POST'}); await waitDone(ip); info(ip); history();
 }
-async function poll(ip){ const box=document.querySelector(`#tv-${ip.replaceAll('.','-')} pre`); box.hidden=false;
-  const j=await (await fetch('/api/log?ip='+ip)).json(); box.textContent=j.lines.join('\\n'); box.scrollTop=1e9;
-  if(j.running) setTimeout(()=>poll(ip),1500);
-}
-scan();
+async function history(){ const rows=await (await fetch('/api/history')).json();
+  $('#hist').innerHTML=rows.length?'<table>'+rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')+'</table>':'<span class=muted>Zatiaľ nič.</span>'; }
+async function quit(){ await fetch('/api/quit',{method:'POST'}); document.body.innerHTML='<main><h1>Inštalátor je ukončený.</h1><p class=sub>Toto okno môžeš zavrieť.</p></main>'; }
+scan(); history();
 </script></body></html>"""
 
 
@@ -204,7 +256,9 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/find":
             self._json(find_tvs())
         elif path == "/api/info" and self._ip():
-            self._json(tv_model(self._ip()))
+            self._json(tv_status(self._ip()))
+        elif path == "/api/history":
+            self._json(read_history())
         elif path == "/api/log" and self._ip():
             with lock:
                 j = jobs.get(self._ip(), {"lines": [], "running": False})
@@ -214,12 +268,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path, ip = urlparse(self.path).path, self._ip()
+        if path == "/api/quit":
+            self._json({"ok": True})
+            threading.Timer(0.3, lambda: os._exit(0)).start()
+            return
         if not ip:
             return self._json({"error": "bad ip"}, 400)
+        force = parse_qs(urlparse(self.path).query).get("force", [""])[0] == "1"
         if path == "/api/install":
-            start_job(ip, "provision.sh")
+            start_job(ip, "provision.sh", extra_env={"FORCE": "1"} if force else None)
         elif path == "/api/undo":
             start_job(ip, "undo.sh", ("--apps", "--remove-app"))
+        elif path == "/api/helper":
+            start_job(ip, "helper.sh", ())
         else:
             return self._json({"error": "not found"}, 404)
         self._json({"ok": True})
@@ -229,5 +290,6 @@ if __name__ == "__main__":
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)   # only this Mac can open it
     url = f"http://127.0.0.1:{PORT}/"
     print(f"Merk Kiosk inštalátor beží na {url} (zatvorenie: Ctrl+C)")
-    threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    if "--no-browser" not in os.sys.argv:
+        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
     server.serve_forever()

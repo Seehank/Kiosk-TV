@@ -10,7 +10,7 @@ zvolenú prevádzku a obrazovku a sama sa obnoví, keď niekto stránku vo WordP
 |---|---|
 | `app/` | Android appka Merk Kiosk (Java, bez knižníc). Balík `sk.merk.kiosk`. |
 | `tv/installer.py` | Inštalátor s oknom (v prehliadači): nájde TV na sieti, nainštaluje alebo vráti späť. |
-| `Merk Kiosk Installer.command` | Dvojklik spustí inštalátor. |
+| `Merk Kiosk Installer.app` / `.command` | Dvojklik spustí inštalátor (appku vytvorí `tools/make-installer-app.sh`). |
 | `tv/provision.sh` | Inštalácia na jednu TV: `./provision.sh <IP>`. |
 | `tv/undo.sh` | Vrátenie TV: `./undo.sh <IP> --apps --remove-app` (reklamy a telemetria ostanú vypnuté). |
 | `tv/helper.sh` | Zapnutie / vypnutie pomocníka z počítača: `./helper.sh on|off <IP>`. |
@@ -51,7 +51,9 @@ Na TV raz ovládačom: Nastavenia → Zariadenie → Informácie → 7× *Zostav
 *Ladenie USB* zapnúť. Pri prvom pripojení na TV potvrdiť „Povoliť ladenie USB?“ (Vždy povoliť).
 Potom dvojklik na `Merk Kiosk Installer.command`, vybrať TV a *Nainštalovať*.
 
-ADB ide cez čisto pythonový klient z projektu couch-tv (`~/Sites/couch-tv`, MIT licencia), pozri `tv/adb.sh`.
+ADB ide cez čisto pythonový klient `tools/tvadb.py` (prevzatý z projektu couch-tv, MIT licencia, `tools/LICENSE-couch-tv`) vo vlastnom prostredí `.venv` (vytvorí sa samo).
+
+Mac appka s ikonou: `./tools/make-installer-app.sh` vytvorí `Merk Kiosk Installer.app` (dvojklik). Inštalátor kontroluje model (UnionTV, Android 9), ukazuje verziu kiosku, pomocníka a stránku na obrazovke, a vedie históriu inštalácií v `tv/state/installs.csv`.
 
 ## Pravidlá
 

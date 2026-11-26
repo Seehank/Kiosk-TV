@@ -1,3 +1,3 @@
 #!/bin/zsh
-# Double-click to open the Merk Kiosk installer in the browser. Close this window to stop it.
-exec python3 "${0:A:h}/tv/installer.py"
+# Double-click alternative to the app: opens the Merk Kiosk installer in the browser.
+exec "${0:A:h}/Merk Kiosk Installer.app/Contents/MacOS/launch"

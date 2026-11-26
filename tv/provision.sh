@@ -49,7 +49,12 @@ A=./adb.sh
 STATE=state/$TV_IP; mkdir -p $STATE
 
 echo "== Connecting to $TV_IP (press Always allow on the TV if it asks)"
-$A shell "getprop ro.product.model; getprop ro.build.version.release"
+model=$($A shell "getprop ro.product.model" | tr -d '\r'); android=$($A shell "getprop ro.build.version.release" | tr -d '\r')
+echo "$model, Android $android"
+if [[ "$model" != UnionTV || "$android" != 9 ]] && [[ "$FORCE" != 1 ]]; then
+  echo "STOP: this setup was made and tested on UnionTV with Android 9. Run with FORCE=1 to install anyway."
+  exit 2
+fi
 
 echo "== Saving the TV's current state to $STATE"
 $A shell "pm list packages -d" > $STATE/disabled-before.txt

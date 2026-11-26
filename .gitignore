@@ -14,3 +14,5 @@ tv/state/
 survey/
 *.part
 .DS_Store
+.venv/
+Merk Kiosk Installer.app/
