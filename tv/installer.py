@@ -23,6 +23,7 @@ from urllib.parse import parse_qs, urlparse
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = 8765
 jobs = {}          # ip -> {"name", "lines": [...], "running": bool}
+ADB_INFO = {"version": "sťahujem…"}
 lock = threading.Lock()
 
 
@@ -74,6 +75,17 @@ def find_tvs():
 
 EXPECTED_MODEL, EXPECTED_ANDROID = "UnionTV", "9"     # the TCL TVs this setup was made and tested on
 HISTORY = os.path.join(HERE, "state", "installs.csv")      # local only (tv/state is not in git)
+
+
+def get_adb():
+    """First step: download Google's newest adb (platform-tools) into tools/ (only when Google has a newer one)."""
+    try:
+        out = subprocess.run([os.path.join(HERE, "..", "tools", "get-adb.sh")], capture_output=True, text=True,
+                             timeout=300).stdout
+        m = re.search(r"Version (\S+)", out)
+        ADB_INFO["version"] = m.group(1) if m else "nepodarilo sa (použije sa záložný klient)"
+    except Exception:
+        ADB_INFO["version"] = "nepodarilo sa (použije sa záložný klient)"
 
 
 def adb_shell(ip, cmd, timeout=60):
@@ -161,7 +173,7 @@ PAGE = """<!doctype html><html lang="sk"><head><meta charset="utf-8"><title>Merk
  [data-info] button{padding:3px 10px;font-size:13px;margin-left:6px}
 </style></head><body><main>
 <h1>Merk Kiosk inštalátor</h1>
-<p class="sub">Nájde televízory na tejto Wi-Fi a jedným tlačidlom z nich spraví menu kiosk.</p>
+<p class="sub">Nájde televízory na tejto Wi-Fi a jedným tlačidlom z nich spraví menu kiosk. <span class="muted">ADB od Googlu: <span id="adbv">…</span></span></p>
 <div class="card"><b>Na TV raz ovládačom:</b>
  <ol><li>Nastavenia → Zariadenie → Informácie → 7× stlačiť <i>Zostava (Build)</i></li>
  <li>Nastavenia → Zariadenie → Pre vývojárov → <i>Ladenie USB</i> zapnúť</li>
@@ -224,7 +236,8 @@ async function go(ip,what){ const r=tvinfo[ip]||{}; let force='';
 async function history(){ const rows=await (await fetch('/api/history')).json();
   $('#hist').innerHTML=rows.length?'<table>'+rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')+'</table>':'<span class=muted>Zatiaľ nič.</span>'; }
 async function quit(){ await fetch('/api/quit',{method:'POST'}); document.body.innerHTML='<main><h1>Inštalátor je ukončený.</h1><p class=sub>Toto okno môžeš zavrieť.</p></main>'; }
-scan(); history();
+async function adbv(){ const j=await (await fetch('/api/adb')).json(); $('#adbv').textContent=j.version; if(j.version==='sťahujem…') setTimeout(adbv,1500); }
+adbv(); scan(); history();
 </script></body></html>"""
 
 
@@ -257,6 +270,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(find_tvs())
         elif path == "/api/info" and self._ip():
             self._json(tv_status(self._ip()))
+        elif path == "/api/adb":
+            self._json(ADB_INFO)
         elif path == "/api/history":
             self._json(read_history())
         elif path == "/api/log" and self._ip():
@@ -287,6 +302,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    threading.Thread(target=get_adb, daemon=True).start()          # step 1: newest adb from Google
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)   # only this Mac can open it
     url = f"http://127.0.0.1:{PORT}/"
     print(f"Merk Kiosk inštalátor beží na {url} (zatvorenie: Ctrl+C)")

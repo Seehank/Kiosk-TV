@@ -51,7 +51,7 @@ Na TV raz ovládačom: Nastavenia → Zariadenie → Informácie → 7× *Zostav
 *Ladenie USB* zapnúť. Pri prvom pripojení na TV potvrdiť „Povoliť ladenie USB?“ (Vždy povoliť).
 Potom dvojklik na `Merk Kiosk Installer.command`, vybrať TV a *Nainštalovať*.
 
-ADB ide cez čisto pythonový klient `tools/tvadb.py` (prevzatý z projektu couch-tv, MIT licencia, `tools/LICENSE-couch-tv`) vo vlastnom prostredí `.venv` (vytvorí sa samo).
+ADB: inštalátor si pri štarte stiahne najnovšie oficiálne ADB od Googlu (`tools/get-adb.sh`, platform-tools do `tools/platform-tools`, sťahuje len keď je novšie) a používa ho. Záložne ide cez čisto pythonový klient `tools/tvadb.py` (prevzatý z projektu couch-tv, MIT licencia, `tools/LICENSE-couch-tv`) vo vlastnom prostredí `.venv` (vytvorí sa samo).
 
 Mac appka s ikonou: `./tools/make-installer-app.sh` vytvorí `Merk Kiosk Installer.app` (dvojklik). Inštalátor kontroluje model (UnionTV, Android 9), ukazuje verziu kiosku, pomocníka a stránku na obrazovke, a vedie históriu inštalácií v `tv/state/installs.csv`.
 

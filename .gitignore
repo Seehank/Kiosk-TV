@@ -16,3 +16,6 @@ survey/
 .DS_Store
 .venv/
 Merk Kiosk Installer.app/
+tools/platform-tools/
+tools/platform-tools-latest-darwin.zip
+tools/*.part
