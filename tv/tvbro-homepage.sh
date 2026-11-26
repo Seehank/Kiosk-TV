@@ -46,8 +46,9 @@ tap text Settings
 tap desc "Home page:"
 tap text Custom
 tap id etValue                                               # the address field
-typing="input keyevent KEYCODE_MOVE_END; for i in \$(seq 1 80); do input keyevent KEYCODE_DEL; done; "
-for (( i=1; i<=${#URL}; i+=2 )); do typing+="input text '${URL[i,i+1]}'; sleep 0.05; "; done   # 2 letters at a time: all at once loses letters
+# The kiosk app puts the address into the clipboard, then one Paste fills the field (typing loses letters).
+$A shell "am broadcast -n sk.merk.kiosk/.Clip --es text '$URL'" | grep -q 'data="ok"' || { echo "   the kiosk could not set the clipboard (kiosk 1.16+ needed)" >&2; exit 1; }
+typing="input keyevent KEYCODE_MOVE_END $(printf '67 %.0s' {1..80}); input keyevent KEYCODE_PASTE; sleep 1; "   # 67 = Delete, all in one command
 $A shell "$typing input keyevent ENTER" >/dev/null
 sleep 1
 got=($(find id etValue)); got=$got[3]
