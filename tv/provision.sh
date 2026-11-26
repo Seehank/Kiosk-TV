@@ -19,13 +19,12 @@ APK=../dist/latest.apk
 if [[ "$2" == "--apk" ]]; then
   APK=$3
 else
-  # Always the newest version: the latest GitHub release of Seehank/Kiosk-TV (private, needs `gh` logged in
-  # on this Mac), else update.json on the WordPress server. Downloaded into dist/server and installed from there.
+  # Always the newest version: the latest release on GitHub (public repo, plain HTTPS, no login needed),
+  # else update.json on the WordPress server. Downloaded into dist/server and installed from there.
   echo "== Getting the newest kiosk version"
   mkdir -p ../dist/server
-  info=""
-  if command -v gh >/dev/null && gh release download --repo Seehank/Kiosk-TV --pattern update.json --pattern 'merk-kiosk-*.apk' --dir ../dist/server --clobber 2>/dev/null; then
-    info=$(cat ../dist/server/update.json); echo "   from GitHub release $(gh release view --repo Seehank/Kiosk-TV --json tagName -q .tagName 2>/dev/null)"
+  if info=$(curl -sfL --max-time 20 -A "MerkKiosk-installer" https://github.com/Seehank/Kiosk-TV/releases/latest/download/update.json); then
+    echo "   from GitHub (github.com/Seehank/Kiosk-TV)"
   else
     info=$(curl -sf --max-time 15 -A "MerkKiosk-installer" https://merk.bannet.sk/wp-content/uploads/kiosk/update.json) && echo "   from the WordPress server"
   fi
@@ -33,7 +32,7 @@ else
     read -r url sha ver <<<"$(python3 -c 'import json,sys; d=json.loads(sys.argv[1]); print(d["apk"], d.get("sha256",""), d["versionName"])' "$info")"
     out=../dist/server/${url:t}
     if [[ ! -f $out ]] || [[ $(shasum -a 256 $out | cut -d' ' -f1) != $sha ]]; then
-      curl -sf --max-time 120 -A "MerkKiosk-installer" -o $out.part "$url" && mv $out.part $out
+      curl -sfL --max-time 120 -A "MerkKiosk-installer" -o $out.part "$url" && mv $out.part $out
     fi
     if [[ -f $out && ( -z $sha || $(shasum -a 256 $out | cut -d' ' -f1) == $sha ) ]]; then
       APK=$out; echo "   version $ver from the server (checksum OK)"
