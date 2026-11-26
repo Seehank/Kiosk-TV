@@ -9,7 +9,7 @@
 #
 # What it does (everything is undone by ./undo.sh):
 #   1. installs the kiosk app          2. switches on its home watch (Accessibility)
-#   3. installs TV Bro as fallback browser, switches off the apps in debloat-list.txt (nothing is deleted)
+#   3. installs TV Bro as fallback browser with the menu as its home page, switches off the apps in debloat-list.txt (nothing is deleted)
 #   4. no screensaver, no auto power off   5. disables the Google home, reboots, checks it
 # After that the TV needs no more attention: it boots into the menu and asks for the screen once.
 set -e
@@ -64,6 +64,7 @@ $A install "$APK"
 
 echo "== Installing the fallback browser (TV Bro, open source, GitHub release 3.0.7)"
 $A install ../dist/tvbro-3.0.7.apk
+./tvbro-homepage.sh $TV_IP || echo "   (TV Bro home page not set: set it by hand in TV Bro, Settings, Home page)"
 
 echo "== Switching off listed apps"
 for p in $(grep -v '^#' debloat-list.txt | grep -v '^$'); do
