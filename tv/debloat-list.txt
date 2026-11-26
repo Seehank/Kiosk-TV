@@ -1,0 +1,46 @@
+# Packages to switch off with `pm disable-user --user 0`. Undo: `pm enable <package>`.
+# Streaming and media apps
+com.netflix.ninja
+com.amazon.amazonvideo.livingroom
+com.google.android.youtube.tv
+tv.twitch.android.app
+org.videolan.vlc
+# Browsers: the TCL one and the purple Openinet (shows ads) go. The fallback browser is TV Bro (com.phlox.tvwebbrowser), installed by provision.sh.
+com.tcl.browser
+com.seraphic.openinet.pre
+com.google.android.videos
+com.google.android.music
+com.google.android.play.games
+com.realtek.netflix.setting
+com.tcl.ui_mediaCenter
+com.tcl.videoplayer
+com.tcl.audioplayer
+com.tcl.imageplayer
+com.android.gallery3d
+# Recommendations, ads, assistant, Cast
+com.google.android.tvrecommendations
+com.google.android.leanbacklauncher.recommendations
+com.google.android.backdrop
+com.google.android.katniss
+com.google.android.speech.pumpkin
+com.google.android.apps.mediashell
+com.tcl.appmarket2
+com.tcl.esticker
+com.tcl.copydatatotv
+com.tcl.keyhelp
+com.tcl.usercenter
+# Telemetry, feedback, remote management
+com.tcl.bi
+com.tcl.common.terminalmanagerplus
+com.tcl.tvweishi
+com.google.android.feedback
+com.google.android.tv.bugreportsender
+# Firmware updates (no surprise updates on a kiosk)
+com.tcl.versionUpdateApp
+com.tcl.rc.ota
+# Small unused system extras
+com.google.android.marvin.talkback
+com.android.dreams.basic
+com.android.printspooler
+com.google.android.syncadapters.calendar
+com.google.android.syncadapters.contacts

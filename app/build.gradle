@@ -1,0 +1,37 @@
+plugins { id 'com.android.application' }
+
+// Release with: ./release.sh  (bumps versionCode in version.properties)
+def v = new Properties()
+file('../version.properties').withInputStream { v.load(it) }
+def ks = new Properties()
+def ksFile = file('../keystore/keystore.properties')
+if (ksFile.exists()) ksFile.withInputStream { ks.load(it) }
+
+android {
+    namespace 'sk.merk.kiosk'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'sk.merk.kiosk'
+        minSdk 24
+        targetSdk 34
+        versionCode v['versionCode'] as int
+        versionName v['versionName']
+        buildConfigField 'String', 'BASE', '"https://merk.bannet.sk"'
+        // Landing page. Empty: the picker built into the app. update.json "startUrl" overrides it.
+        buildConfigField 'String', 'START_URL', '"https://merk.bannet.sk/tv-menu/"'
+        buildConfigField 'String', 'UPDATE_URL', '"https://merk.bannet.sk/wp-content/uploads/kiosk/update.json"'
+    }
+    buildFeatures { buildConfig true }
+    signingConfigs {
+        release {
+            storeFile file('../keystore/merk-kiosk.jks')
+            storePassword ks['password']
+            keyAlias 'merk-kiosk'
+            keyPassword ks['password']
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig signingConfigs.release }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}

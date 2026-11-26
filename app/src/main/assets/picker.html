@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>Výber obrazovky</title>
+<style>
+  :root { --fg:#fff; --dim:#8a8a8a; --line:#2a2a2a; --focus:#fff; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:#000; color:var(--fg);
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif; overflow:hidden; }
+  main { height:100%; display:flex; flex-direction:column; padding:72px 96px 56px; }
+  header { display:flex; align-items:baseline; justify-content:space-between; }
+  h1 { font-size:40px; font-weight:400; margin:0; letter-spacing:.02em; }
+  .crumb { font-size:28px; color:var(--dim); }
+  .grid { flex:1; display:grid; gap:40px; align-content:center;
+    grid-template-columns:repeat(var(--cols,2), 1fr); }
+  .tile { background:#0c0c0c; border:3px solid var(--line); border-radius:28px; color:var(--fg);
+    font:inherit; min-height:220px; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:14px; padding:24px; transition:transform .12s, border-color .12s; }
+  .tile .name { font-size:72px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; line-height:1; }
+  .tile .sub { font-size:28px; color:var(--dim); }
+  .tile img { max-width:80%; max-height:140px; object-fit:contain; }
+  .tile.small { min-height:150px; }
+  .tile.small .name { font-size:52px; text-transform:none; letter-spacing:0; }
+  .tile.current { border-color:#555; }
+  .tile:focus, .btn:focus { outline:none; border-color:var(--focus); transform:scale(1.04); background:#161616; }
+  footer { display:flex; gap:24px; align-items:center; }
+  .btn { background:#0c0c0c; color:var(--fg); border:3px solid var(--line); border-radius:999px;
+    font:inherit; font-size:28px; padding:16px 36px; }
+  .hint { margin-left:auto; color:var(--dim); font-size:24px; }
+  .msg { flex:1; display:flex; align-items:center; justify-content:center; font-size:36px; color:var(--dim); }
+</style>
+</head>
+<body>
+<main>
+  <header><h1 id="title">Vyberte prevádzku</h1><span class="crumb" id="crumb"></span></header>
+  <div class="grid" id="grid"><div class="msg">Načítavam…</div></div>
+  <footer id="footer"></footer>
+</main>
+<script>
+// Locations: title prefix in WordPress (before the first "_") -> how it shows on the TV.
+// logo: optional image URL (for example from the WordPress media library).
+const LOCATIONS = {
+  avion:   { name: 'Avion',   sub: 'Shopping Park', logo: '' },
+  bory:    { name: 'Bory',    sub: 'Mall',          logo: '' },
+  eurovea: { name: 'Eurovea', sub: '',              logo: '' },
+  vivo:    { name: 'Vivo!',   sub: 'Polus',         logo: '' },
+};
+const OTHER = 'ostatne';
+
+const K = window.Kiosk || {   // lets the page run in a normal browser for testing
+  loadPages(){ fetch('https://merk.bannet.sk/wp-json/wp/v2/pages?per_page=100&_fields=id,title,link,modified_gmt')
+    .then(r=>r.text()).then(t=>onPages(t)).catch(e=>onPagesError(String(e))); },
+  choose(id,url,t){ alert('choose '+t+' '+url); }, cancel(){}, retry(){ location.reload(); },
+  openWifi(){ alert('wifi'); }, openTvSettings(){ alert('settings'); }, current(){ return ''; }, version(){ return 'browser'; },
+};
+
+let groups = {};      // key -> [{id,link,label,title}]
+let view = 'locations', openKey = null;
+const $ = id => document.getElementById(id);
+
+function decode(html){ const t=document.createElement('textarea'); t.innerHTML=html; return t.value; }
+
+window.onPages = function(text){
+  let pages; try { pages = JSON.parse(text); } catch(e){ return onPagesError('zlá odpoveď'); }
+  groups = {};
+  for (const p of pages) {
+    const title = decode(p.title && p.title.rendered || '').trim();
+    const i = title.indexOf('_');
+    const prefix = (i > 0 ? title.slice(0,i) : title).toLowerCase();
+    const key = LOCATIONS[prefix] ? prefix : OTHER;
+    const label = key === OTHER ? title : title.slice(i+1).replace(/_/g,' ').trim();
+    (groups[key] = groups[key] || []).push({ id:String(p.id), link:p.link, label, title });
+  }
+  for (const k in groups) groups[k].sort((a,b)=>a.label.localeCompare(b.label,'sk',{numeric:true}));
+  showLocations();
+};
+
+window.onPagesError = function(err){
+  $('grid').style.setProperty('--cols',1);
+  $('grid').innerHTML = '<div class="msg">Nepodarilo sa načítať zoznam obrazoviek ('+err+').</div>';
+  footer([['Skúsiť znova', ()=>K.loadPages()], ['Pripojiť Wi-Fi', ()=>K.openWifi()]]);
+};
+
+function tile(cls, name, sub, logo, onClick, current){
+  const b = document.createElement('button');
+  b.className = 'tile ' + cls + (current ? ' current' : '');
+  if (logo) { const im=document.createElement('img'); im.src=logo; im.alt=name; b.appendChild(im); }
+  else { const n=document.createElement('div'); n.className='name'; n.textContent=name; b.appendChild(n); }
+  if (sub) { const s=document.createElement('div'); s.className='sub'; s.textContent=sub; b.appendChild(s); }
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+function footer(buttons){
+  const f = $('footer'); f.innerHTML = '';
+  for (const [label, fn] of buttons) {
+    const b=document.createElement('button'); b.className='btn'; b.textContent=label; b.addEventListener('click', fn); f.appendChild(b);
+  }
+  const h=document.createElement('span'); h.className='hint';
+  h.textContent = 'Tento výber kedykoľvek otvoríte 3× tlačidlom Späť · ' + K.version(); f.appendChild(h);
+}
+
+function showLocations(){
+  view='locations'; openKey=null;
+  $('title').textContent='Vyberte prevádzku'; $('crumb').textContent='';
+  const g=$('grid'); g.innerHTML='';
+  const cur = K.current();
+  const keys = Object.keys(LOCATIONS).filter(k=>groups[k]);
+  if (groups[OTHER]) keys.push(OTHER);
+  g.style.setProperty('--cols', keys.length > 4 ? 3 : 2);
+  for (const k of keys) {
+    const L = LOCATIONS[k] || { name:'Ostatné', sub:'' };
+    const has = groups[k].some(p=>p.id===cur);
+    g.appendChild(tile(k===OTHER?'small':'', L.name, L.sub || (groups[k].length+' obrazoviek'), L.logo, ()=>showScreens(k), has));
+  }
+  const btns=[['Pripojiť Wi-Fi', ()=>K.openWifi()], ['Nastavenia TV', ()=>K.openTvSettings()]];
+  if (cur) btns.unshift(['Späť na obrazovku', ()=>K.cancel()]);
+  footer(btns);
+  focusFirst(keys.findIndex(k=>groups[k].some(p=>p.id===cur)));
+}
+
+function showScreens(k){
+  view='screens'; openKey=k;
+  const L = LOCATIONS[k] || { name:'Ostatné' };
+  $('title').textContent='Vyberte obrazovku'; $('crumb').textContent=L.name + (L.sub?' '+L.sub:'');
+  const g=$('grid'); g.innerHTML='';
+  const list = groups[k];
+  g.style.setProperty('--cols', list.length > 4 ? 3 : 2);
+  const cur = K.current();
+  for (const p of list) g.appendChild(tile('small', p.label, '', '', ()=>K.choose(p.id, p.link, p.title), p.id===cur));
+  footer([['← Prevádzky', showLocations]]);
+  focusFirst(list.findIndex(p=>p.id===cur));
+}
+
+window.kioskBack = function(){ if (view==='screens') showLocations(); };
+
+// Remote arrows: move between tiles in the grid, and down into the footer buttons.
+function focusables(){ return [...document.querySelectorAll('.tile, .btn')]; }
+function focusFirst(i){ const t=[...document.querySelectorAll('.tile')]; (t[i>=0?i:0]||focusables()[0])?.focus(); }
+document.addEventListener('keydown', e=>{
+  const all=focusables(), tiles=[...document.querySelectorAll('.tile')], btns=[...document.querySelectorAll('.btn')];
+  const a=document.activeElement, cols=parseInt(getComputedStyle($('grid')).getPropertyValue('--cols'))||2;
+  let i=tiles.indexOf(a), j=btns.indexOf(a), next=null;
+  if (!all.includes(a)) { focusFirst(0); e.preventDefault(); return; }
+  if (i>=0) {
+    if (e.key==='ArrowRight') next=tiles[i+1];
+    if (e.key==='ArrowLeft') next=tiles[i-1];
+    if (e.key==='ArrowDown') next=tiles[i+cols] || (Math.floor(i/cols)===Math.floor((tiles.length-1)/cols) ? btns[0] : tiles[tiles.length-1]);
+    if (e.key==='ArrowUp') next=tiles[i-cols];
+  } else if (j>=0) {
+    if (e.key==='ArrowRight') next=btns[j+1];
+    if (e.key==='ArrowLeft') next=btns[j-1];
+    if (e.key==='ArrowUp') next=tiles[tiles.length-1];
+  }
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) { e.preventDefault(); next && next.focus(); }
+});
+
+K.loadPages();
+</script>
+</body>
+</html>

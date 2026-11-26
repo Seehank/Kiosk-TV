@@ -1,0 +1,16 @@
+# Local tools and builds
+.toolchain/
+.gradle/
+build/
+app/build/
+local.properties
+# Signing key: NEVER commit (keep a backup somewhere safe; updates need the same key)
+keystore/
+# Built files go to GitHub Releases, not into git
+dist/
+downloads/
+# Per-TV state and local investigation notes
+tv/state/
+survey/
+*.part
+.DS_Store
