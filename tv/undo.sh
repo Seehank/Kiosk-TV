@@ -6,7 +6,7 @@
 cd "${0:A:h}"
 [[ -n "$1" && "$1" != --* ]] && { export TV_IP=$1; shift; }
 A=./adb.sh
-ST=state; [[ -d state/${TV_IP:-192.168.50.6} ]] && ST=state/${TV_IP:-192.168.50.6}
+ST=state; [[ -n "$TV_IP" && -d state/$TV_IP ]] && ST=state/$TV_IP
 # Ads and telemetry stay off even with --apps (the "obvious bloatware").
 KEEP_OFF=" com.tcl.bi com.tcl.common.terminalmanagerplus com.tcl.tvweishi com.tcl.esticker com.google.android.feedback com.google.android.tv.bugreportsender com.google.android.tvrecommendations com.google.android.leanbacklauncher.recommendations com.seraphic.openinet.pre "
 if [[ " $* " == *" --apps "* ]]; then
