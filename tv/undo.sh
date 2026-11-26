@@ -30,5 +30,7 @@ $A shell "wm density reset" >/dev/null
 if [[ " $* " == *" --remove-app "* ]]; then
   $A shell "pm uninstall sk.merk.kiosk; pm uninstall com.phlox.tvwebbrowser"
 fi
+$A shell "rm -f /data/local/tmp/ui.xml /data/local/tmp/s.png; rm -rf /data/local/tmp/tvhome" >/dev/null 2>&1   # files left by the installer
 $A shell "input keyevent HOME"
 echo "Back to the TV's own home screen."
+echo "Still on (switch off by hand if wanted): Developer options and USB debugging; ads and telemetry apps stay off."
